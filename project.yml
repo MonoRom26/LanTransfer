@@ -1,0 +1,34 @@
+name: LanTransfer
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "16.0"
+packages:
+  GCDWebServer:
+    url: https://github.com/swisspol/GCDWebServer
+    from: 3.5.4
+targets:
+  LanTransfer:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    dependencies:
+      - package: GCDWebServer
+        product: GCDWebServers
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: LAN Transfer
+        UILaunchScreen: {}
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        NSLocalNetworkUsageDescription: Used to transfer files with your computer over Wi-Fi.
+        NSBonjourServices: ["_http._tcp"]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.lantransfer
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
