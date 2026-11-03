@@ -3,18 +3,11 @@ options:
   bundleIdPrefix: com.example
   deploymentTarget:
     iOS: "16.0"
-packages:
-  GCDWebServer:
-    url: https://github.com/swisspol/GCDWebServer
-    from: 3.5.4
 targets:
   LanTransfer:
     type: application
     platform: iOS
     sources: [Sources]
-    dependencies:
-      - package: GCDWebServer
-        product: GCDWebServers
     info:
       path: Info.plist
       properties:
