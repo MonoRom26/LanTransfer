@@ -1,6 +1,5 @@
 import Foundation
 import UIKit
-import GCDWebServers
 
 struct ActivityItem: Identifiable {
     let id = UUID()
@@ -9,14 +8,14 @@ struct ActivityItem: Identifiable {
     let date = Date()
 }
 
-final class ServerManager: NSObject, ObservableObject, GCDWebUploaderDelegate {
+final class ServerManager: ObservableObject {
     @Published var isRunning = false
     @Published var urlString = ""
     @Published var errorText = ""
     @Published var activity: [ActivityItem] = []
     @Published var filesVersion = 0   // bump to make the Files tab reload
 
-    private var uploader: GCDWebUploader?
+    private var server: MiniServer?
 
     static var documentsPath: String {
         NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]
@@ -30,30 +29,42 @@ final class ServerManager: NSObject, ObservableObject, GCDWebUploaderDelegate {
         let keepAwake = d.object(forKey: "keepAwake") as? Bool ?? true
         let bonjour = d.bool(forKey: "bonjour")
 
-        let server = GCDWebUploader(uploadDirectory: Self.documentsPath)
-        server.allowHiddenItems = false
-        server.delegate = self
-
-        var options: [String: Any] = [GCDWebServerOption_Port: port]
-        if bonjour { options[GCDWebServerOption_BonjourName] = "LanTransfer" }
-        if usePassword && !password.isEmpty {
-            options[GCDWebServerOption_AuthenticationMethod] = GCDWebServerAuthenticationMethod_Basic
-            options[GCDWebServerOption_AuthenticationAccounts] = ["admin": password]
+        let s = MiniServer(root: URL(fileURLWithPath: Self.documentsPath),
+                           password: usePassword ? password : "")
+        s.onEvent = { [weak self] kind, name in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                switch kind {
+                case "upload":
+                    self.log("upload", "Received \(name)"); self.filesVersion += 1
+                case "download":
+                    self.log("download", "Sent \(name)")
+                case "delete":
+                    self.log("trash", "Deleted \(name)"); self.filesVersion += 1
+                default: break
+                }
+            }
+        }
+        s.onFailure = { [weak self] msg in
+            DispatchQueue.main.async {
+                self?.stop()
+                self?.errorText = "Server error: \(msg)"
+            }
         }
 
         do {
-            try server.start(options: options)
+            try s.start(port: UInt16(clamping: port), bonjour: bonjour)
         } catch {
             errorText = "Could not start: \(error.localizedDescription)"
             return
         }
 
-        uploader = server
+        server = s
         errorText = ""
         if let ip = Self.wifiIPAddress() {
             urlString = "http://\(ip):\(port)"
         } else {
-            urlString = server.serverURL?.absoluteString ?? ""
+            urlString = "http://localhost:\(port)"
             errorText = "Not connected to Wi-Fi?"
         }
         isRunning = true
@@ -62,32 +73,17 @@ final class ServerManager: NSObject, ObservableObject, GCDWebUploaderDelegate {
     }
 
     func stop() {
-        uploader?.stop()
-        uploader = nil
+        server?.stop()
+        server = nil
         isRunning = false
         urlString = ""
         UIApplication.shared.isIdleTimerDisabled = false
-        log("player-stop", "Server stopped")
+        log("stop", "Server stopped")
     }
 
     private func log(_ icon: String, _ text: String) {
-        DispatchQueue.main.async {
-            self.activity.insert(ActivityItem(icon: icon, text: text), at: 0)
-            if self.activity.count > 50 { self.activity.removeLast() }
-        }
-    }
-
-    // MARK: GCDWebUploaderDelegate
-    func webUploader(_ uploader: GCDWebUploader, didUploadFileAtPath path: String) {
-        log("upload", "Received \((path as NSString).lastPathComponent)")
-        DispatchQueue.main.async { self.filesVersion += 1 }
-    }
-    func webUploader(_ uploader: GCDWebUploader, didDownloadFileAtPath path: String) {
-        log("download", "Sent \((path as NSString).lastPathComponent)")
-    }
-    func webUploader(_ uploader: GCDWebUploader, didDeleteItemAtPath path: String) {
-        log("trash", "Deleted \((path as NSString).lastPathComponent)")
-        DispatchQueue.main.async { self.filesVersion += 1 }
+        activity.insert(ActivityItem(icon: icon, text: text), at: 0)
+        if activity.count > 50 { activity.removeLast() }
     }
 
     static func wifiIPAddress() -> String? {
