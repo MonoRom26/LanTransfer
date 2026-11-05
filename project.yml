@@ -2,7 +2,7 @@ name: LanTransfer
 options:
   bundleIdPrefix: com.example
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "14.0"
 targets:
   LanTransfer:
     type: application

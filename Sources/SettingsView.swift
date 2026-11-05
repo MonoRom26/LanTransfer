@@ -9,24 +9,33 @@ struct SettingsView: View {
     @AppStorage("bonjour") private var bonjour = false
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
-                Section("Server") {
+                Section(header: Text("Server")) {
                     Stepper("Port: \(port)", value: $port, in: 1024...65535)
                     Toggle("Keep screen awake", isOn: $keepAwake)
                     Toggle("Bonjour name (LanTransfer.local)", isOn: $bonjour)
                 }
-                Section {
+
+                Section(header: Text("Security"),
+                        footer: Text("Your PC browser will ask for the username and password.")) {
                     Toggle("Require password", isOn: $usePassword)
                     if usePassword {
-                        LabeledContent("Username", value: "admin")
+                        HStack {
+                            Text("Username")
+                            Spacer()
+                            Text("admin").foregroundColor(.secondary)
+                        }
                         SecureField("Password", text: $password)
                     }
-                } header: { Text("Security") }
-                  footer: { Text("Your PC browser will ask for the username and password.") }
+                }
 
-                Section("Storage") {
-                    LabeledContent("Folder", value: "On My iPhone › LanTransfer")
+                Section(header: Text("Storage")) {
+                    HStack {
+                        Text("Folder")
+                        Spacer()
+                        Text("On My iPhone › LanTransfer").foregroundColor(.secondary)
+                    }
                     Button("Open Files app") {
                         if let url = URL(string: "shareddocuments://") { UIApplication.shared.open(url) }
                     }
@@ -39,13 +48,18 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("About") {
-                    LabeledContent("Version", value: "1.0")
+                Section(header: Text("About")) {
+                    HStack {
+                        Text("Version")
+                        Spacer()
+                        Text("1.0").foregroundColor(.secondary)
+                    }
                     Text("Both devices must be on the same Wi-Fi. Transfers are not encrypted, so use a trusted network.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundColor(.secondary)
                 }
             }
             .navigationTitle("Settings")
         }
+        .navigationViewStyle(StackNavigationViewStyle())
     }
 }

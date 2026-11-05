@@ -9,34 +9,59 @@ struct FileItem: Identifiable {
     var name: String { url.lastPathComponent }
 }
 
+struct ShareItem: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+struct ActivityView: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
+}
+
 struct FilesView: View {
     @ObservedObject var server: ServerManager
     @State private var files: [FileItem] = []
     @State private var showImporter = false
+    @State private var shareItem: ShareItem?
+
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        return f
+    }()
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Group {
                 if files.isEmpty {
                     VStack(spacing: 8) {
-                        Image(systemName: "tray").font(.system(size: 44)).foregroundStyle(.secondary)
+                        Image(systemName: "tray").font(.system(size: 44)).foregroundColor(.secondary)
                         Text("No files yet").font(.headline)
                         Text("Upload from your PC or tap + to add files.")
-                            .font(.subheadline).foregroundStyle(.secondary)
+                            .font(.subheadline).foregroundColor(.secondary)
                     }
                 } else {
                     List {
                         ForEach(files) { f in
                             HStack {
-                                Image(systemName: "doc").foregroundStyle(.blue)
+                                Image(systemName: "doc").foregroundColor(.blue)
                                 VStack(alignment: .leading) {
                                     Text(f.name).lineLimit(1)
-                                    Text("\(ByteCountFormatter.string(fromByteCount: f.size, countStyle: .file)) • \(f.date.formatted(date: .abbreviated, time: .shortened))")
-                                        .font(.caption).foregroundStyle(.secondary)
+                                    Text("\(ByteCountFormatter.string(fromByteCount: f.size, countStyle: .file)) • \(Self.dateFormatter.string(from: f.date))")
+                                        .font(.caption).foregroundColor(.secondary)
                                 }
                                 Spacer()
-                                ShareLink(item: f.url) { Image(systemName: "square.and.arrow.up") }
-                                    .buttonStyle(.borderless)
+                                Button {
+                                    shareItem = ShareItem(url: f.url)
+                                } label: {
+                                    Image(systemName: "square.and.arrow.up")
+                                }
+                                .buttonStyle(BorderlessButtonStyle())
                             }
                         }
                         .onDelete(perform: delete)
@@ -45,6 +70,9 @@ struct FilesView: View {
             }
             .navigationTitle("Files")
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button { reload() } label: { Image(systemName: "arrow.clockwise") }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button { showImporter = true } label: { Image(systemName: "plus") }
                 }
@@ -62,10 +90,13 @@ struct FilesView: View {
                 }
                 reload()
             }
-            .refreshable { reload() }
+            .sheet(item: $shareItem) { item in
+                ActivityView(items: [item.url])
+            }
             .onAppear { reload() }
             .onChange(of: server.filesVersion) { _ in reload() }
         }
+        .navigationViewStyle(StackNavigationViewStyle())
     }
 
     private func reload() {
