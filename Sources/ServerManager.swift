@@ -93,12 +93,15 @@ final class ServerManager: ObservableObject {
         defer { freeifaddrs(ifaddr) }
         for ptr in sequence(first: first, next: { $0.pointee.ifa_next }) {
             let ifa = ptr.pointee
-            guard ifa.ifa_addr.pointee.sa_family == UInt8(AF_INET),
+            // ifa_addr can be NULL on some interfaces (e.g. iPhone 12 with 5G) -> skip them
+            guard let addr = ifa.ifa_addr else { continue }
+            guard addr.pointee.sa_family == UInt8(AF_INET),
                   String(cString: ifa.ifa_name) == "en0" else { continue }
             var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-            getnameinfo(ifa.ifa_addr, socklen_t(ifa.ifa_addr.pointee.sa_len),
-                        &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST)
-            address = String(cString: host)
+            if getnameinfo(addr, socklen_t(addr.pointee.sa_len),
+                           &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0 {
+                address = String(cString: host)
+            }
         }
         return address
     }

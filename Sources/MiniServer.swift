@@ -42,8 +42,7 @@ final class MiniServer {
     func stop() {
         listener?.cancel()
         listener = nil
-        queue.async { [weak self] in
-            guard let self = self else { return }
+        queue.async {
             for s in Array(self.sessions.values) { s.close() }
             self.sessions.removeAll()
         }
@@ -77,7 +76,7 @@ final class MiniServer {
 // MARK: - One HTTP connection
 fileprivate final class Session {
     let conn: NWConnection
-    unowned let server: MiniServer
+    let server: MiniServer
     var buffer = Data()
     var headerParsed = false
     var finished = false
