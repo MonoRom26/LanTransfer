@@ -9,6 +9,7 @@ final class MiniServer {
 
     let root: URL
     let password: String
+    var lang = "en"
     var onEvent: ((_ kind: String, _ name: String) -> Void)?
     var onFailure: ((String) -> Void)?
 
@@ -17,14 +18,14 @@ final class MiniServer {
         self.password = password
     }
 
-    func start(port: UInt16, bonjour: Bool) throws {
+    func start(port: UInt16, serviceName: String?) throws {
         guard let p = NWEndpoint.Port(rawValue: port) else {
             throw NSError(domain: "MiniServer", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "Invalid port"])
         }
         let l = try NWListener(using: .tcp, on: p)
-        if bonjour {
-            l.service = NWListener.Service(name: "LanTransfer", type: "_http._tcp")
+        if let n = serviceName {
+            l.service = NWListener.Service(name: n, type: "_lantransfer._tcp")
         }
         l.newConnectionHandler = { [weak self] conn in
             guard let self = self else { return }
@@ -187,7 +188,8 @@ fileprivate final class Session {
     private func route(_ rest: Data) {
         switch (method, path) {
         case ("GET", "/"):
-            respond(200, "OK", body: Data(indexHTML.utf8), type: "text/html; charset=utf-8")
+            let html = indexHTML.replacingOccurrences(of: "__LANG__", with: server.lang)
+            respond(200, "OK", body: Data(html.utf8), type: "text/html; charset=utf-8")
         case ("GET", "/api/list"):
             respond(200, "OK", body: server.listJSON(), type: "application/json")
         case ("GET", "/download"):
@@ -310,37 +312,48 @@ private let indexHTML = #"""
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LAN Transfer</title>
 <style>
-:root{color-scheme:light dark;font-family:-apple-system,Segoe UI,Roboto,sans-serif}
+:root{color-scheme:light dark;font-family:-apple-system,Segoe UI,Roboto,"Noto Sans Khmer","Khmer UI","Malgun Gothic","Microsoft YaHei",sans-serif}
 body{max-width:760px;margin:0 auto;padding:20px}
+.top{display:flex;justify-content:space-between;align-items:center}
 h1{font-size:22px}
+select{font-size:14px;padding:4px 8px;border-radius:6px}
 #drop{border:2px dashed #888;border-radius:12px;padding:32px;text-align:center;margin:16px 0}
 #drop.over{background:rgba(24,95,165,.15);border-color:#185FA5}
-.btn{background:#185FA5;color:#fff;border:0;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:14px;text-decoration:none}
+.btn{background:#185FA5;color:#fff;border:0;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:14px;text-decoration:none;display:inline-block}
 .btn.red{background:#A32D2D}
 .row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(128,128,128,.3)}
 .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .meta{font-size:12px;opacity:.65}
 progress{width:140px}
 </style></head><body>
-<h1>LAN Transfer</h1>
-<div id="drop">Drop files here, or <label class="btn">Choose files<input id="pick" type="file" multiple hidden></label></div>
+<div class="top"><h1>LAN Transfer</h1>
+<select id="lg"><option value="en">English</option><option value="ko">한국어</option><option value="km">ខ្មែរ</option><option value="zh">中文</option></select></div>
+<div id="drop"><span id="t_drop"></span> <label class="btn"><span id="t_choose"></span><input id="pick" type="file" multiple hidden></label></div>
 <div id="uploads"></div>
-<h2 style="font-size:16px">Files on iPhone</h2>
+<h2 style="font-size:16px" id="t_head"></h2>
 <div id="list"></div>
 <script>
+const S={
+ en:{drop:'Drop files here, or',choose:'Choose files',head:'Files on iPhone',none:'No files yet.',dl:'Download',del:'Delete',conf:'Delete this file?',up:'Uploading',done:'Done',fail:'Failed'},
+ ko:{drop:'파일을 여기에 놓거나',choose:'파일 선택',head:'iPhone의 파일',none:'파일이 없습니다.',dl:'다운로드',del:'삭제',conf:'이 파일을 삭제할까요?',up:'업로드 중',done:'완료',fail:'실패'},
+ km:{drop:'ទម្លាក់ឯកសារនៅទីនេះ ឬ',choose:'ជ្រើសរើសឯកសារ',head:'ឯកសារនៅលើ iPhone',none:'មិនទាន់មានឯកសារទេ។',dl:'ទាញយក',del:'លុប',conf:'លុបឯកសារនេះឬ?',up:'កំពុងផ្ទុកឡើង',done:'រួចរាល់',fail:'បរាជ័យ'},
+ zh:{drop:'将文件拖到此处，或',choose:'选择文件',head:'iPhone 上的文件',none:'暂无文件。',dl:'下载',del:'删除',conf:'删除此文件？',up:'正在上传',done:'完成',fail:'失败'}
+};
+let L=S['__LANG__']?'__LANG__':'en';
+const t=k=>S[L][k];
 const $=id=>document.getElementById(id);
 function fmt(n){if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';if(n<1073741824)return (n/1048576).toFixed(1)+' MB';return (n/1073741824).toFixed(2)+' GB'}
 async function load(){
   const r=await fetch('/api/list');const items=await r.json();const box=$('list');box.textContent='';
-  if(!items.length){box.textContent='No files yet.';return}
+  if(!items.length){box.textContent=t('none');return}
   for(const it of items){
     const row=document.createElement('div');row.className='row';
     const n=document.createElement('div');n.className='name';n.textContent=it.name;
     const m=document.createElement('div');m.className='meta';m.textContent=fmt(it.size);
-    const d=document.createElement('a');d.className='btn';d.textContent='Download';
+    const d=document.createElement('a');d.className='btn';d.textContent=t('dl');
     d.href='/download?name='+encodeURIComponent(it.name);
-    const x=document.createElement('button');x.className='btn red';x.textContent='Delete';
-    x.onclick=async()=>{if(confirm('Delete '+it.name+'?')){await fetch('/delete?name='+encodeURIComponent(it.name),{method:'POST'});load()}};
+    const x=document.createElement('button');x.className='btn red';x.textContent=t('del');
+    x.onclick=async()=>{if(confirm(t('conf')+'\n'+it.name)){await fetch('/delete?name='+encodeURIComponent(it.name),{method:'POST'});load()}};
     row.append(n,m,d,x);box.append(row);
   }
 }
@@ -349,22 +362,24 @@ function upload(file){
     const row=document.createElement('div');row.className='row';
     const n=document.createElement('div');n.className='name';n.textContent=file.name;
     const p=document.createElement('progress');p.max=1;p.value=0;
-    const s=document.createElement('div');s.className='meta';s.textContent='Uploading';
+    const s=document.createElement('div');s.className='meta';s.textContent=t('up');
     row.append(n,p,s);$('uploads').append(row);
     const x=new XMLHttpRequest();
     x.open('POST','/upload?name='+encodeURIComponent(file.name));
     x.upload.onprogress=e=>{if(e.lengthComputable)p.value=e.loaded/e.total};
-    x.onload=()=>{s.textContent=x.status==200?'Done':'Failed';if(x.status==200)setTimeout(()=>row.remove(),2000);res()};
-    x.onerror=()=>{s.textContent='Failed';res()};
+    x.onload=()=>{s.textContent=x.status==200?t('done'):t('fail');if(x.status==200)setTimeout(()=>row.remove(),2000);res()};
+    x.onerror=()=>{s.textContent=t('fail');res()};
     x.send(file);
   });
 }
 async function handle(files){for(const f of files){await upload(f)}load()}
+function applyLang(){$('t_drop').textContent=t('drop');$('t_choose').textContent=t('choose');$('t_head').textContent=t('head');$('lg').value=L;load()}
+$('lg').onchange=e=>{L=e.target.value;applyLang()};
 $('pick').onchange=e=>handle(e.target.files);
 const dz=$('drop');
 dz.ondragover=e=>{e.preventDefault();dz.classList.add('over')};
 dz.ondragleave=()=>dz.classList.remove('over');
 dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');handle(e.dataTransfer.files)};
-load();
+applyLang();
 </script></body></html>
 """#

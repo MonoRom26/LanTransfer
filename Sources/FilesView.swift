@@ -41,10 +41,12 @@ struct FilesView: View {
                 if files.isEmpty {
                     VStack(spacing: 8) {
                         Image(systemName: "tray").font(.system(size: 44)).foregroundColor(.secondary)
-                        Text("No files yet").font(.headline)
-                        Text("Upload from your PC or tap + to add files.")
+                        Text(T("no_files")).font(.headline)
+                        Text(T("no_files_hint"))
                             .font(.subheadline).foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
                     }
+                    .padding()
                 } else {
                     List {
                         ForEach(files) { f in
@@ -56,9 +58,7 @@ struct FilesView: View {
                                         .font(.caption).foregroundColor(.secondary)
                                 }
                                 Spacer()
-                                Button {
-                                    shareItem = ShareItem(url: f.url)
-                                } label: {
+                                Button(action: { shareItem = ShareItem(url: f.url) }) {
                                     Image(systemName: "square.and.arrow.up")
                                 }
                                 .buttonStyle(BorderlessButtonStyle())
@@ -68,13 +68,13 @@ struct FilesView: View {
                     }
                 }
             }
-            .navigationTitle("Files")
+            .navigationTitle(T("tab_files"))
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button { reload() } label: { Image(systemName: "arrow.clockwise") }
+                    Button(action: { reload() }) { Image(systemName: "arrow.clockwise") }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button { showImporter = true } label: { Image(systemName: "plus") }
+                    Button(action: { showImporter = true }) { Image(systemName: "plus") }
                 }
             }
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.item],

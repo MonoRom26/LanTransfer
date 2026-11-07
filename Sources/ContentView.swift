@@ -2,15 +2,28 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var server = ServerManager()
+    @StateObject private var client = HostClient()
+    @AppStorage("language") private var language = Lang.system.rawValue
+    @State private var tab = 0
 
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             TransferView(server: server)
-                .tabItem { Label("Transfer", systemImage: "arrow.left.arrow.right") }
+                .tabItem { Label { Text(T("tab_transfer")) } icon: { Image(systemName: "arrow.left.arrow.right") } }
+                .tag(0)
+            ConnectView(server: server, client: client)
+                .tabItem { Label { Text(T("tab_connect")) } icon: { Image(systemName: "link") } }
+                .tag(1)
             FilesView(server: server)
-                .tabItem { Label("Files", systemImage: "folder") }
+                .tabItem { Label { Text(T("tab_files")) } icon: { Image(systemName: "folder") } }
+                .tag(2)
             SettingsView(server: server)
-                .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tabItem { Label { Text(T("tab_settings")) } icon: { Image(systemName: "gearshape") } }
+                .tag(3)
+        }
+        .id(language)   // rebuild all screens when the language changes
+        .onAppear {
+            client.onSaved = { [weak server] in server?.filesVersion += 1 }
         }
     }
 }

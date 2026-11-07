@@ -9,20 +9,23 @@ struct TransferView: View {
             ScrollView {
                 VStack(spacing: 18) {
                     if server.isRunning {
+                        HStack(spacing: 6) {
+                            Circle().fill(Color.green).frame(width: 8, height: 8)
+                            Text(T("ready")).font(.footnote).foregroundColor(.green)
+                        }
                         if let qr = qrImage(for: server.urlString) {
                             Image(uiImage: qr)
                                 .interpolation(.none)
                                 .resizable()
                                 .frame(width: 190, height: 190)
                         }
-                        Text("Open on your PC browser")
+                        Text(T("open_on_pc"))
                             .font(.footnote).foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
                         Text(server.urlString)
                             .font(.system(.title3, design: .monospaced))
-                        Button {
-                            UIPasteboard.general.string = server.urlString
-                        } label: {
-                            Label("Copy address", systemImage: "doc.on.doc")
+                        Button(action: { UIPasteboard.general.string = server.urlString }) {
+                            Label { Text(T("copy_address")) } icon: { Image(systemName: "doc.on.doc") }
                         }
                         .buttonStyle(OutlineButtonStyle())
                     } else {
@@ -30,21 +33,21 @@ struct TransferView: View {
                             .font(.system(size: 60))
                             .foregroundColor(.secondary)
                             .padding(.top, 40)
-                        Text("Server is stopped")
+                        Text(T("server_stopped"))
                     }
 
                     if !server.errorText.isEmpty {
                         Text(server.errorText).font(.footnote).foregroundColor(.red)
                     }
 
-                    Button(server.isRunning ? "Stop Server" : "Start Server") {
-                        server.isRunning ? server.stop() : server.start()
+                    Button(action: { server.isRunning ? server.stop() : server.start() }) {
+                        Text(server.isRunning ? T("stop_server") : T("start_server"))
                     }
                     .buttonStyle(FilledButtonStyle(color: server.isRunning ? .red : .blue))
 
                     if !server.activity.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Activity").font(.headline)
+                            Text(T("activity")).font(.headline)
                             ForEach(server.activity) { item in
                                 HStack {
                                     Image(systemName: symbol(item.icon)).frame(width: 22)
@@ -63,7 +66,7 @@ struct TransferView: View {
                 }
                 .padding()
             }
-            .navigationTitle("LAN Transfer")
+            .navigationTitle(T("nav_transfer"))
         }
         .navigationViewStyle(StackNavigationViewStyle())
     }

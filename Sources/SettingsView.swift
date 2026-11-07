@@ -2,63 +2,76 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var server: ServerManager
+    @AppStorage("language") private var language = Lang.system.rawValue
     @AppStorage("port") private var port = 8080
     @AppStorage("usePassword") private var usePassword = false
     @AppStorage("password") private var password = ""
     @AppStorage("keepAwake") private var keepAwake = true
-    @AppStorage("bonjour") private var bonjour = false
+    @AppStorage("discoverable") private var discoverable = true
 
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Server")) {
-                    Stepper("Port: \(port)", value: $port, in: 1024...65535)
-                    Toggle("Keep screen awake", isOn: $keepAwake)
-                    Toggle("Bonjour name (LanTransfer.local)", isOn: $bonjour)
+                Section(header: Text(T("language"))) {
+                    ForEach(Lang.allCases) { l in
+                        Button(action: { language = l.rawValue }) {
+                            HStack {
+                                Text(l.nativeName).foregroundColor(.primary)
+                                Spacer()
+                                if language == l.rawValue {
+                                    Image(systemName: "checkmark").foregroundColor(.blue)
+                                }
+                            }
+                        }
+                    }
                 }
 
-                Section(header: Text("Security"),
-                        footer: Text("Your PC browser will ask for the username and password.")) {
-                    Toggle("Require password", isOn: $usePassword)
+                Section(header: Text(T("sec_server"))) {
+                    Stepper(value: $port, in: 1024...65535) { Text(TF("port", port)) }
+                    Toggle(isOn: $keepAwake) { Text(T("keep_awake")) }
+                    Toggle(isOn: $discoverable) { Text(T("discoverable")) }
+                }
+
+                Section(header: Text(T("security")), footer: Text(T("pw_footer"))) {
+                    Toggle(isOn: $usePassword) { Text(T("require_password")) }
                     if usePassword {
                         HStack {
-                            Text("Username")
+                            Text(T("username"))
                             Spacer()
                             Text("admin").foregroundColor(.secondary)
                         }
-                        SecureField("Password", text: $password)
+                        SecureField(T("password"), text: $password)
                     }
                 }
 
-                Section(header: Text("Storage")) {
+                Section(header: Text(T("storage"))) {
                     HStack {
-                        Text("Folder")
+                        Text(T("folder"))
                         Spacer()
-                        Text("On My iPhone › LanTransfer").foregroundColor(.secondary)
+                        Text(T("folder_path")).foregroundColor(.secondary).font(.footnote)
                     }
-                    Button("Open Files app") {
+                    Button(action: {
                         if let url = URL(string: "shareddocuments://") { UIApplication.shared.open(url) }
-                    }
+                    }) { Text(T("open_files_app")) }
                 }
 
                 if server.isRunning {
                     Section {
-                        Label("Stop and start the server to apply changes.", systemImage: "info.circle")
-                            .font(.footnote)
+                        Text(T("restart_note")).font(.footnote)
                     }
                 }
 
-                Section(header: Text("About")) {
+                Section(header: Text(T("about"))) {
                     HStack {
-                        Text("Version")
+                        Text(T("version"))
                         Spacer()
-                        Text("1.0").foregroundColor(.secondary)
+                        Text("1.1").foregroundColor(.secondary)
                     }
-                    Text("Both devices must be on the same Wi-Fi. Transfers are not encrypted, so use a trusted network.")
+                    Text(T("about_text"))
                         .font(.footnote).foregroundColor(.secondary)
                 }
             }
-            .navigationTitle("Settings")
+            .navigationTitle(T("tab_settings"))
         }
         .navigationViewStyle(StackNavigationViewStyle())
     }
