@@ -1,5 +1,12 @@
 import SwiftUI
 
+/// EDIT THESE: your name and your links
+enum AuthorInfo {
+    static let name = "MonoRom26"
+    static let telegram = "https://t.me/fannybabe_21"
+    static let discord = "https://discord.gg/KD9R2ZTAca"
+}
+
 struct SettingsView: View {
     @ObservedObject var server: ServerManager
     @AppStorage("language") private var language = Lang.system.rawValue
@@ -67,6 +74,28 @@ struct SettingsView: View {
                         Spacer()
                         Text("1.1").foregroundColor(.secondary)
                     }
+                    HStack {
+                        Text(T("author"))
+                        Spacer()
+                        Text(AuthorInfo.name).foregroundColor(.secondary)
+                    }
+                    Button(action: { open(AuthorInfo.telegram) }) {
+                        HStack {
+                            Image(systemName: "paperplane.fill").foregroundColor(.blue).frame(width: 24)
+                            Text("Telegram").foregroundColor(.primary)
+                            Spacer()
+                            Image(systemName: "arrow.up.right").font(.footnote).foregroundColor(.secondary)
+                        }
+                    }
+                    Button(action: { open(AuthorInfo.discord) }) {
+                        HStack {
+                            Image(systemName: "bubble.left.and.bubble.right.fill")
+                                .foregroundColor(.purple).frame(width: 24)
+                            Text("Discord").foregroundColor(.primary)
+                            Spacer()
+                            Image(systemName: "arrow.up.right").font(.footnote).foregroundColor(.secondary)
+                        }
+                    }
                     Text(T("about_text"))
                         .font(.footnote).foregroundColor(.secondary)
                 }
@@ -74,5 +103,9 @@ struct SettingsView: View {
             .navigationTitle(T("tab_settings"))
         }
         .navigationViewStyle(StackNavigationViewStyle())
+    }
+
+    private func open(_ link: String) {
+        if let url = URL(string: link) { UIApplication.shared.open(url) }
     }
 }

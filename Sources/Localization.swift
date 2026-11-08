@@ -140,6 +140,8 @@ private let strings: [String: [Lang: String]] = {
     a("language", "Language", "언어", "ភាសា", "语言")
     a("about", "About", "정보", "អំពី", "关于")
     a("version", "Version", "버전", "កំណែ", "版本")
+    a("author", "Author", "제작자", "អ្នកបង្កើត", "作者")
+    a("social", "Contact", "연락처", "ទំនាក់ទំនង", "联系方式")
     a("about_text", "Both devices must be on the same Wi-Fi. Transfers are not encrypted, so use a trusted network.",
       "두 기기는 같은 Wi-Fi에 있어야 합니다. 전송은 암호화되지 않으므로 신뢰할 수 있는 네트워크를 사용하세요.",
       "ឧបករណ៍ទាំងពីរត្រូវនៅលើ Wi-Fi តែមួយ។ ការផ្ទេរមិនត្រូវបានអ៊ិនគ្រីបទេ ដូច្នេះសូមប្រើបណ្តាញដែលអាចទុកចិត្តបាន។",
