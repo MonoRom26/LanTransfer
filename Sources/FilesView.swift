@@ -9,9 +9,15 @@ struct FileItem: Identifiable {
     var name: String { url.lastPathComponent }
 }
 
-struct ShareItem: Identifiable {
-    let id = UUID()
-    let url: URL
+enum FilesSheet: Identifiable {
+    case share(URL)
+    case picker
+    var id: String {
+        switch self {
+        case .share(let u): return "share-" + u.path
+        case .picker: return "picker"
+        }
+    }
 }
 
 struct ActivityView: UIViewControllerRepresentable {
@@ -25,8 +31,9 @@ struct ActivityView: UIViewControllerRepresentable {
 struct FilesView: View {
     @ObservedObject var server: ServerManager
     @State private var files: [FileItem] = []
-    @State private var showImporter = false
-    @State private var shareItem: ShareItem?
+    @State private var sheet: FilesSheet?
+    @State private var message = ""
+    @State private var messageIsError = false
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -37,7 +44,16 @@ struct FilesView: View {
 
     var body: some View {
         NavigationView {
-            Group {
+            VStack(spacing: 0) {
+                if !message.isEmpty {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundColor(messageIsError ? .red : .green)
+                        .frame(maxWidth: .infinity)
+                        .padding(8)
+                        .background(Color(.secondarySystemBackground))
+                }
+                Group {
                 if files.isEmpty {
                     VStack(spacing: 8) {
                         Image(systemName: "tray").font(.system(size: 44)).foregroundColor(.secondary)
@@ -58,7 +74,7 @@ struct FilesView: View {
                                         .font(.caption).foregroundColor(.secondary)
                                 }
                                 Spacer()
-                                Button(action: { shareItem = ShareItem(url: f.url) }) {
+                                Button(action: { sheet = .share(f.url) }) {
                                     Image(systemName: "square.and.arrow.up")
                                 }
                                 .buttonStyle(BorderlessButtonStyle())
@@ -67,6 +83,7 @@ struct FilesView: View {
                         .onDelete(perform: delete)
                     }
                 }
+                }
             }
             .navigationTitle(T("tab_files"))
             .toolbar {
@@ -74,29 +91,62 @@ struct FilesView: View {
                     Button(action: { reload() }) { Image(systemName: "arrow.clockwise") }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showImporter = true }) { Image(systemName: "plus") }
+                    Button(action: { sheet = .picker }) { Image(systemName: "plus") }
                 }
             }
-            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.item],
-                          allowsMultipleSelection: true) { result in
-                guard case .success(let urls) = result else { return }
-                for url in urls {
-                    let scoped = url.startAccessingSecurityScopedResource()
-                    defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-                    let dest = URL(fileURLWithPath: ServerManager.documentsPath)
-                        .appendingPathComponent(url.lastPathComponent)
-                    try? FileManager.default.removeItem(at: dest)
-                    try? FileManager.default.copyItem(at: url, to: dest)
+            .sheet(item: $sheet) { s in
+                switch s {
+                case .share(let url):
+                    ActivityView(items: [url])
+                case .picker:
+                    DocumentPicker(
+                        onPick: { urls in importFiles(urls); sheet = nil },
+                        onCancel: { sheet = nil })
                 }
-                reload()
-            }
-            .sheet(item: $shareItem) { item in
-                ActivityView(items: [item.url])
             }
             .onAppear { reload() }
             .onChange(of: server.filesVersion) { _ in reload() }
         }
         .navigationViewStyle(StackNavigationViewStyle())
+    }
+
+    private func importFiles(_ urls: [URL]) {
+        var added = 0
+        var lastError = ""
+        for url in urls {
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            let dest = uniqueDestination(url.lastPathComponent)
+            do {
+                try FileManager.default.copyItem(at: url, to: dest)
+                added += 1
+            } catch {
+                lastError = error.localizedDescription
+            }
+        }
+        if !lastError.isEmpty {
+            message = TF("add_failed", lastError)
+            messageIsError = true
+        } else {
+            message = TF("added_files", added)
+            messageIsError = false
+        }
+        reload()
+    }
+
+    private func uniqueDestination(_ rawName: String) -> URL {
+        let name = (rawName as NSString).lastPathComponent
+        let dir = URL(fileURLWithPath: ServerManager.documentsPath)
+        var dest = dir.appendingPathComponent(name)
+        let base = (name as NSString).deletingPathExtension
+        let ext = (name as NSString).pathExtension
+        var i = 1
+        while FileManager.default.fileExists(atPath: dest.path) {
+            let n = ext.isEmpty ? "\(base) (\(i))" : "\(base) (\(i)).\(ext)"
+            dest = dir.appendingPathComponent(n)
+            i += 1
+        }
+        return dest
     }
 
     private func reload() {

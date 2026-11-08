@@ -111,6 +111,8 @@ private let strings: [String: [Lang: String]] = {
       "ពាក្យសម្ងាត់មិនត្រឹមត្រូវ ឬបាត់។", "密码错误或缺失。")
     a("done", "Done", "완료", "រួចរាល់", "完成")
     a("failed", "Failed", "실패", "បរាជ័យ", "失败")
+    a("added_files", "Added %ld file(s)", "%ld개 파일 추가됨", "បានបន្ថែមឯកសារ %ld", "已添加 %ld 个文件")
+    a("add_failed", "Could not add file: %@", "파일을 추가할 수 없습니다: %@", "មិនអាចបន្ថែមឯកសារបាន: %@", "无法添加文件：%@")
     a("cancel", "Cancel", "취소", "បោះបង់", "取消")
 
     // Settings tab
