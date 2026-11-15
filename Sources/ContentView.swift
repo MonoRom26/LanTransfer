@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var server = ServerManager()
     @StateObject private var client = HostClient()
+    @StateObject private var updater = UpdateChecker()
     @AppStorage("language") private var language = Lang.system.rawValue
     @State private var tab = 0
 
@@ -17,13 +18,20 @@ struct ContentView: View {
             FilesView(server: server)
                 .tabItem { Label { Text(T("tab_files")) } icon: { Image(systemName: "folder") } }
                 .tag(2)
-            SettingsView(server: server)
+            SettingsView(server: server, updater: updater)
                 .tabItem { Label { Text(T("tab_settings")) } icon: { Image(systemName: "gearshape") } }
                 .tag(3)
         }
         .id(language)   // rebuild all screens when the language changes
+        .alert(isPresented: $updater.showAlert) {
+            Alert(title: Text(T("update_title")),
+                  message: Text(TF("update_msg", updater.latestVersion, UpdateChecker.currentVersion)),
+                  primaryButton: .default(Text(T("update_open"))) { updater.openRelease() },
+                  secondaryButton: .cancel(Text(T("update_later"))))
+        }
         .onAppear {
             client.onSaved = { [weak server] in server?.filesVersion += 1 }
+            updater.autoCheck()
         }
     }
 }

@@ -7,8 +7,7 @@ struct ConnectView: View {
     @StateObject private var discovery = Discovery()
     @State private var address = ""
     @State private var password = ""
-    @State private var showScanner = false
-    @State private var showImporter = false
+    @State private var sheet: ConnectSheet?
 
     private var peers: [Discovery.Peer] {
         let me = ServerManager.wifiIPAddress()
@@ -37,10 +36,17 @@ struct ConnectView: View {
             }
         }
         .navigationViewStyle(StackNavigationViewStyle())
-        .sheet(isPresented: $showScanner) {
-            ScannerSheet { code in
-                showScanner = false
-                client.connect(address: code, name: "", password: password)
+        .sheet(item: $sheet) { s in
+            switch s {
+            case .scanner:
+                ScannerSheet { code in
+                    sheet = nil
+                    client.connect(address: code, name: "", password: password)
+                }
+            case .picker:
+                DocumentPicker(
+                    onPick: { urls in client.upload(urls: urls); sheet = nil },
+                    onCancel: { sheet = nil })
             }
         }
         .onAppear { discovery.start() }
@@ -73,7 +79,7 @@ struct ConnectView: View {
             }
 
             Section(header: Text(T("other_ways"))) {
-                Button(action: { showScanner = true }) {
+                Button(action: { sheet = .scanner }) {
                     Label { Text(T("scan_qr")) } icon: { Image(systemName: "qrcode.viewfinder") }
                 }
                 TextField(T("address"), text: $address)
@@ -111,7 +117,7 @@ struct ConnectView: View {
                     Spacer()
                     Text(client.hostAddress).font(.caption).foregroundColor(.secondary)
                 }
-                Button(action: { showImporter = true }) {
+                Button(action: { sheet = .picker }) {
                     Label { Text(T("send_files")) } icon: { Image(systemName: "square.and.arrow.up") }
                 }
             }
@@ -156,10 +162,6 @@ struct ConnectView: View {
             }
         }
         .listStyle(InsetGroupedListStyle())
-        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.item],
-                      allowsMultipleSelection: true) { result in
-            if case .success(let urls) = result { client.upload(urls: urls) }
-        }
     }
 
     private func stateText(_ t: TransferItem) -> String {
@@ -210,4 +212,9 @@ struct ScannerSheet: View {
             }
         }
     }
+}
+
+enum ConnectSheet: Identifiable {
+    case scanner, picker
+    var id: Int { self == .scanner ? 0 : 1 }
 }

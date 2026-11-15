@@ -3,12 +3,13 @@ import SwiftUI
 /// EDIT THESE: your name and your links
 enum AuthorInfo {
     static let name = "MonoRom26"
-    static let telegram = "https://t.me/fannybabe_21"
-    static let discord = "https://discord.gg/KD9R2ZTAca"
+    static let telegram = "https://t.me/yourusername"
+    static let discord = "https://discord.gg/yourinvite"
 }
 
 struct SettingsView: View {
     @ObservedObject var server: ServerManager
+    @ObservedObject var updater: UpdateChecker
     @AppStorage("language") private var language = Lang.system.rawValue
     @AppStorage("port") private var port = 8080
     @AppStorage("usePassword") private var usePassword = false
@@ -72,7 +73,21 @@ struct SettingsView: View {
                     HStack {
                         Text(T("version"))
                         Spacer()
-                        Text("1.1").foregroundColor(.secondary)
+                        Text(UpdateChecker.currentVersion).foregroundColor(.secondary)
+                    }
+                    Button(action: { updater.check(manual: true) }) {
+                        HStack {
+                            Text(T("update_check")).foregroundColor(.primary)
+                            Spacer()
+                            Text(updateStatusText).font(.footnote).foregroundColor(.secondary)
+                        }
+                    }
+                    Button(action: { UIApplication.shared.open(updater.releasesPageURL) }) {
+                        HStack {
+                            Text(T("releases_page")).foregroundColor(.primary)
+                            Spacer()
+                            Image(systemName: "arrow.up.right").font(.footnote).foregroundColor(.secondary)
+                        }
                     }
                     HStack {
                         Text(T("author"))
@@ -103,6 +118,16 @@ struct SettingsView: View {
             .navigationTitle(T("tab_settings"))
         }
         .navigationViewStyle(StackNavigationViewStyle())
+    }
+
+    private var updateStatusText: String {
+        switch updater.state {
+        case .idle: return ""
+        case .checking: return T("update_checking")
+        case .upToDate: return T("update_uptodate")
+        case .available: return TF("update_new", updater.latestVersion)
+        case .failed: return T("update_failed")
+        }
     }
 
     private func open(_ link: String) {

@@ -3,11 +3,17 @@ options:
   bundleIdPrefix: com.example
   deploymentTarget:
     iOS: "14.0"
+packages:
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation
+    from: 0.9.19
 targets:
   LanTransfer:
     type: application
     platform: iOS
     sources: [Sources]
+    dependencies:
+      - package: ZIPFoundation
     info:
       path: Info.plist
       properties:
@@ -18,6 +24,8 @@ targets:
         NSLocalNetworkUsageDescription: Used to transfer files with your computer and other iPhones over Wi-Fi.
         NSBonjourServices: ["_lantransfer._tcp"]
         NSCameraUsageDescription: Used to scan the QR code shown on another iPhone.
+        NSPhotoLibraryAddUsageDescription: Used to save photos and videos from your files to Photos.
+        UIBackgroundModes: [audio]
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
           NSAllowsLocalNetworking: true
@@ -25,7 +33,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.lantransfer
-        MARKETING_VERSION: "1.1"
-        CURRENT_PROJECT_VERSION: "2"
+        MARKETING_VERSION: "1.2"
+        CURRENT_PROJECT_VERSION: "3"
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
