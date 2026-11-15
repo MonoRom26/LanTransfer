@@ -495,13 +495,10 @@ struct TextEditorSheet: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: onClose) { Text(T("cancel")) }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button(action: hideKeyboard) { Image(systemName: "keyboard.chevron.compact.down") }
                     Button(action: save) { Text(T("save")).bold() }
                         .disabled(!error.isEmpty || text == original)
-                }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button(action: hideKeyboard) { Text(T("done")) }
                 }
             }
             .onAppear(perform: load)
