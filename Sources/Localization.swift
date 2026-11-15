@@ -178,6 +178,13 @@ private let strings: [String: [Lang: String]] = {
     a("now_playing", "Now playing", "재생 중", "កំពុងចាក់", "正在播放")
     a("cant_play", "This file can't be opened.", "이 파일을 열 수 없습니다.", "មិនអាចបើកឯកសារនេះបានទេ។", "无法打开此文件。")
     a("folder_items", "%ld items", "%ld개 항목", "%ld ធាតុ", "%ld 项")
+    a("save", "Save", "저장", "រក្សាទុក", "保存")
+    a("saved", "Saved", "저장됨", "បានរក្សាទុក", "已保存")
+    a("edit_text", "Open as text", "텍스트로 열기", "បើកជាអត្ថបទ", "以文本打开")
+    a("file_too_big", "This file is too large to edit (over 2 MB).", "이 파일은 너무 커서 편집할 수 없습니다 (2MB 초과).",
+      "ឯកសារនេះធំពេកមិនអាចកែបានទេ (លើស 2 MB)។", "文件太大，无法编辑（超过 2 MB）。")
+    a("cant_read_text", "Could not read this file as text.", "이 파일을 텍스트로 읽을 수 없습니다.",
+      "មិនអាចអានឯកសារនេះជាអត្ថបទបានទេ។", "无法将此文件作为文本读取。")
     a("update_title", "Update available", "업데이트 사용 가능", "មានកំណែថ្មី", "有可用更新")
     a("update_msg", "Version %@ is available. You have version %@.",
       "버전 %@을(를) 사용할 수 있습니다. 현재 버전은 %@입니다.",

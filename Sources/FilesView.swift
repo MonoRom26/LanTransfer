@@ -7,6 +7,7 @@ enum FilesSheet: Identifiable {
     case rename(FileEntry)
     case player([URL], Int)
     case image(URL)
+    case text(FileEntry)
 
     var id: String {
         switch self {
@@ -16,6 +17,7 @@ enum FilesSheet: Identifiable {
         case .rename(let e): return "r" + e.id
         case .player(let l, let i): return "pl\(i)" + (l.first?.path ?? "")
         case .image(let u): return "i" + u.path
+        case .text(let e): return "t" + e.id
         }
     }
 }
@@ -107,6 +109,8 @@ struct FilesView: View {
                     MediaPlayerView(items: list, start: i, onClose: { sheet = nil })
                 case .image(let u):
                     ImageViewer(url: u, model: model, onClose: { sheet = nil })
+                case .text(let e):
+                    TextEditorSheet(entry: e, model: model, onClose: { sheet = nil })
                 }
             }
             .onAppear { model.reload() }
@@ -186,6 +190,7 @@ struct FilesView: View {
         case .video, .audio: play(e)
         case .image: sheet = .image(e.url)
         case .archive: model.unzip([e])
+        case .text: sheet = .text(e)
         default: sheet = .share(e.url)
         }
     }
@@ -201,6 +206,11 @@ struct FilesView: View {
         if e.kind == .video || e.kind == .audio {
             Button(action: { play(e) }) {
                 Label { Text(T("play")) } icon: { Image(systemName: "play") }
+            }
+        }
+        if e.kind == .text || e.kind == .other {
+            Button(action: { sheet = .text(e) }) {
+                Label { Text(T("edit_text")) } icon: { Image(systemName: "doc.text") }
             }
         }
         if !e.isDir {
@@ -450,5 +460,89 @@ struct ImageViewer: View {
             }
         }
         .padding()
+    }
+}
+
+// MARK: - text viewer / editor
+struct TextEditorSheet: View {
+    let entry: FileEntry
+    @ObservedObject var model: FilesModel
+    var onClose: () -> Void
+    @State private var text = ""
+    @State private var original = ""
+    @State private var encoding = String.Encoding.utf8
+    @State private var loaded = false
+    @State private var error = ""
+
+    var body: some View {
+        NavigationView {
+            Group {
+                if !error.isEmpty {
+                    VStack {
+                        Spacer()
+                        Text(error).foregroundColor(.secondary).multilineTextAlignment(.center).padding()
+                        Spacer()
+                    }
+                } else {
+                    TextEditor(text: $text)
+                        .font(.system(.body, design: .monospaced))
+                        .padding(6)
+                }
+            }
+            .navigationTitle(entry.name + (text != original ? " •" : ""))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: onClose) { Text(T("cancel")) }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: save) { Text(T("save")).bold() }
+                        .disabled(!error.isEmpty || text == original)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button(action: hideKeyboard) { Text(T("done")) }
+                }
+            }
+            .onAppear(perform: load)
+        }
+    }
+
+    private func load() {
+        guard !loaded else { return }
+        loaded = true
+        if entry.size > 2_000_000 { error = T("file_too_big"); return }
+        var enc = String.Encoding.utf8
+        if let s = try? String(contentsOf: entry.url, usedEncoding: &enc) {
+            text = s
+            original = s
+            encoding = enc
+        } else if let s = try? String(contentsOf: entry.url, encoding: .isoLatin1) {
+            text = s
+            original = s
+            encoding = .isoLatin1
+        } else {
+            error = T("cant_read_text")
+        }
+    }
+
+    private func save() {
+        do {
+            do {
+                try text.write(to: entry.url, atomically: true, encoding: encoding)
+            } catch {
+                try text.write(to: entry.url, atomically: true, encoding: .utf8)
+                encoding = .utf8
+            }
+            original = text
+            model.flash(T("saved"))
+            model.reload()
+        } catch {
+            model.flash(TF("op_failed", error.localizedDescription), error: true)
+        }
+    }
+
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }

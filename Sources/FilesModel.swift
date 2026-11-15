@@ -22,7 +22,7 @@ struct FileEntry: Identifiable, Hashable {
         case "mp3", "m4a", "wav", "aac", "flac", "aiff", "caf": return .audio
         case "jpg", "jpeg", "png", "heic", "gif", "tiff", "bmp": return .image
         case "zip": return .archive
-        case "txt", "md", "json", "csv", "log", "xml", "html", "rtf": return .text
+        case "txt", "md", "json", "csv", "log", "xml", "html": return .text
         default: return .other
         }
     }
