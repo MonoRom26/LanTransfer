@@ -1,0 +1,2 @@
+# Only needed for drag-and-drop from Windows Explorer (the app also works without it)
+tkinterdnd2

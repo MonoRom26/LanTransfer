@@ -38,6 +38,9 @@ final class ServerManager: ObservableObject {
         let s = MiniServer(root: URL(fileURLWithPath: Self.documentsPath),
                            password: usePassword ? password : "")
         s.lang = Lang.current.rawValue
+        s.deviceName = UIDevice.current.name
+        s.deviceModel = UIDevice.current.model
+        s.systemVersion = UIDevice.current.systemVersion
         s.onEvent = { [weak self] kind, name in
             DispatchQueue.main.async {
                 guard let self = self else { return }
@@ -48,6 +51,8 @@ final class ServerManager: ObservableObject {
                     self.log("download", TF("act_sent", name))
                 case "delete":
                     self.log("trash", TF("act_deleted", name)); self.filesVersion += 1
+                case "mkdir", "rename":
+                    self.filesVersion += 1
                 default: break
                 }
             }

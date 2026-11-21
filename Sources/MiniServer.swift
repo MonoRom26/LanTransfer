@@ -10,6 +10,9 @@ final class MiniServer {
     let root: URL
     let password: String
     var lang = "en"
+    var deviceName = "iPhone"
+    var deviceModel = ""
+    var systemVersion = ""
     var onEvent: ((_ kind: String, _ name: String) -> Void)?
     var onFailure: ((String) -> Void)?
 
@@ -57,20 +60,53 @@ final class MiniServer {
         return name
     }
 
-    fileprivate func listJSON() -> Data {
+    /// Turns a relative folder path ("" = top level) into a folder URL inside the app folder.
+    fileprivate func resolveDir(_ rel: String?) -> URL? {
+        let r = (rel ?? "").trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
+        if r.isEmpty { return root }
+        var url = root
+        for part in r.split(separator: "/") {
+            let p = String(part)
+            if p == "." || p == ".." || p.hasPrefix(".") { return nil }
+            url.appendPathComponent(p)
+        }
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue else { return nil }
+        return url
+    }
+
+    fileprivate func listJSON(in dir: URL, includeDirs: Bool) -> Data {
         let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey, .isDirectoryKey]
         let urls = (try? FileManager.default.contentsOfDirectory(
-            at: root, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles])) ?? []
+            at: dir, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles])) ?? []
         var items: [[String: Any]] = []
         for u in urls {
             let v = try? u.resourceValues(forKeys: Set(keys))
-            if v?.isDirectory == true { continue }
+            let isDir = v?.isDirectory == true
+            if isDir && !includeDirs { continue }
             items.append(["name": u.lastPathComponent,
-                          "size": v?.fileSize ?? 0,
-                          "date": (v?.contentModificationDate ?? Date()).timeIntervalSince1970])
+                          "size": isDir ? 0 : (v?.fileSize ?? 0),
+                          "date": (v?.contentModificationDate ?? Date()).timeIntervalSince1970,
+                          "dir": isDir])
         }
         items.sort { ($0["date"] as? Double ?? 0) > ($1["date"] as? Double ?? 0) }
         return (try? JSONSerialization.data(withJSONObject: items)) ?? Data("[]".utf8)
+    }
+
+    fileprivate func infoJSON() -> Data {
+        var d: [String: Any] = [
+            "app": "LanTransfer",
+            "api": 2,
+            "version": (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "",
+            "device": deviceName,
+            "model": deviceModel,
+            "system": systemVersion
+        ]
+        if let v = try? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey, .volumeTotalCapacityKey]) {
+            if let f = v.volumeAvailableCapacityForImportantUsage { d["free"] = f }
+            if let t = v.volumeTotalCapacity { d["total"] = t }
+        }
+        return (try? JSONSerialization.data(withJSONObject: d)) ?? Data("{}".utf8)
     }
 }
 
@@ -191,7 +227,14 @@ fileprivate final class Session {
             let html = indexHTML.replacingOccurrences(of: "__LANG__", with: server.lang)
             respond(200, "OK", body: Data(html.utf8), type: "text/html; charset=utf-8")
         case ("GET", "/api/list"):
-            respond(200, "OK", body: server.listJSON(), type: "application/json")
+            guard let d = server.resolveDir(query["dir"]) else { respond(404, "Not Found", text: "No such folder"); return }
+            respond(200, "OK", body: server.listJSON(in: d, includeDirs: query["all"] == "1"), type: "application/json")
+        case ("GET", "/api/info"):
+            respond(200, "OK", body: server.infoJSON(), type: "application/json")
+        case ("POST", "/mkdir"):
+            makeFolder()
+        case ("POST", "/rename"):
+            renameItem()
         case ("GET", "/download"):
             download()
         case ("POST", "/upload"):
@@ -205,7 +248,8 @@ fileprivate final class Session {
 
     private func download() {
         guard let name = server.safeName(query["name"]) else { respond(400, "Bad Request", text: "Bad name"); return }
-        let url = server.root.appendingPathComponent(name)
+        guard let folder = server.resolveDir(query["dir"]) else { respond(404, "Not Found", text: "No such folder"); return }
+        let url = folder.appendingPathComponent(name)
         guard let fh = try? FileHandle(forReadingFrom: url),
               let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
               let size = attrs[.size] as? NSNumber else {
@@ -237,9 +281,44 @@ fileprivate final class Session {
         })
     }
 
+    private func makeFolder() {
+        guard let name = server.safeName(query["name"]) else { respond(400, "Bad Request", text: "Bad name"); return }
+        guard let folder = server.resolveDir(query["dir"]) else { respond(404, "Not Found", text: "No such folder"); return }
+        let url = folder.appendingPathComponent(name)
+        if FileManager.default.fileExists(atPath: url.path) {
+            respond(200, "OK", body: Data("{\"ok\":true,\"existed\":true}".utf8), type: "application/json")
+            return
+        }
+        do {
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
+        } catch {
+            respond(500, "Server Error", text: "Cannot create folder"); return
+        }
+        server.onEvent?("mkdir", name)
+        respond(200, "OK", body: Data("{\"ok\":true}".utf8), type: "application/json")
+    }
+
+    private func renameItem() {
+        guard let name = server.safeName(query["name"]), let newName = server.safeName(query["to"]) else {
+            respond(400, "Bad Request", text: "Bad name"); return
+        }
+        guard let folder = server.resolveDir(query["dir"]) else { respond(404, "Not Found", text: "No such folder"); return }
+        let from = folder.appendingPathComponent(name)
+        let to = folder.appendingPathComponent(newName)
+        if FileManager.default.fileExists(atPath: to.path) { respond(409, "Conflict", text: "Name exists"); return }
+        do {
+            try FileManager.default.moveItem(at: from, to: to)
+        } catch {
+            respond(500, "Server Error", text: "Cannot rename"); return
+        }
+        server.onEvent?("rename", newName)
+        respond(200, "OK", body: Data("{\"ok\":true}".utf8), type: "application/json")
+    }
+
     private func deleteFile() {
         guard let name = server.safeName(query["name"]) else { respond(400, "Bad Request", text: "Bad name"); return }
-        let url = server.root.appendingPathComponent(name)
+        guard let folder = server.resolveDir(query["dir"]) else { respond(404, "Not Found", text: "No such folder"); return }
+        let url = folder.appendingPathComponent(name)
         try? FileManager.default.removeItem(at: url)
         server.onEvent?("delete", name)
         respond(200, "OK", body: Data("{\"ok\":true}".utf8), type: "application/json")
@@ -248,8 +327,14 @@ fileprivate final class Session {
     private func beginUpload(_ rest: Data) {
         guard let name = server.safeName(query["name"]) else { respond(400, "Bad Request", text: "Bad name"); return }
         guard headers["content-length"] != nil else { respond(411, "Length Required", text: "Length required"); return }
+        guard let folder = server.resolveDir(query["dir"]) else { respond(404, "Not Found", text: "No such folder"); return }
+        let target = folder.appendingPathComponent(name)
+        var targetIsDir: ObjCBool = false
+        if FileManager.default.fileExists(atPath: target.path, isDirectory: &targetIsDir), targetIsDir.boolValue {
+            respond(409, "Conflict", text: "A folder has that name"); return
+        }
         uploadName = name
-        destURL = server.root.appendingPathComponent(name)
+        destURL = target
         let temp = server.root.appendingPathComponent(".upload-\(UUID().uuidString)")
         guard FileManager.default.createFile(atPath: temp.path, contents: nil),
               let h = try? FileHandle(forWritingTo: temp) else {

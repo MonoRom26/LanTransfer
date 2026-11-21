@@ -67,7 +67,7 @@ private let strings: [String: [Lang: String]] = {
     a("act_received", "Received %@", "%@ 수신됨", "បានទទួល %@", "已接收 %@")
     a("act_sent", "Sent %@", "%@ 전송됨", "បានផ្ញើ %@", "已发送 %@")
     a("act_deleted", "Deleted %@", "%@ 삭제됨", "បានលុប %@", "已删除 %@")
-    a("err_wifi", "Not connected to Wi-Fi?", "Wi-Fi에 연결되어 있지 않나요?", "មិនបានភ្ជាប់ Wi-Fi ទេឬ?", "未连接 Wi-Fi？")
+    a("err_wifi", "No Wi-Fi network. A USB cable still works.", "Wi-Fi가 없습니다. USB 케이블은 계속 사용할 수 있습니다.", "គ្មាន Wi-Fi ទេ។ ខ្សែ USB នៅតែប្រើបាន។", "没有 Wi-Fi。USB 数据线仍然可用。")
     a("err_start", "Could not start: %@", "시작할 수 없습니다: %@", "មិនអាចចាប់ផ្តើមបាន: %@", "无法启动：%@")
     a("err_server", "Server error: %@", "서버 오류: %@", "កំហុសម៉ាស៊ីនមេ: %@", "服务器错误：%@")
 
